@@ -67,7 +67,7 @@ const CreateAttendance = async (req, res) => {
         const { employee_id, working_day, Work_time_morning, lunch_break_out, lunch_break_in, afternoon_out, overtime_break, hours_worked, day_worked, overtime } = req.body;
 
         const [existingRecord] = await db.execute(
-            `SELECT id FROM tb_attendance WHERE employee_id = ? AND working_day = ?`,
+            `SELECT id FROM tb_attendance WHERE employee_id = ? AND workday = ?`,
             [employee_id, working_day]
         );
 
@@ -81,7 +81,7 @@ const CreateAttendance = async (req, res) => {
         // Insert new attendance record
         const [rows] = await db.execute(
             `INSERT INTO tb_attendance 
-            (employee_id, working_day, Work_time_morning, lunch_break_out, lunch_break_in, afternoon_out, overtime_break, hours_worked, day_worked, overtime) 
+            (employee_id, workday, morning_in, lunch_break_out, lunch_break_in, afternoon_out, overtime_break, hours_worked, day_worked, overtime) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 employee_id,
@@ -127,7 +127,7 @@ const CreateAllAttendance = async (req, res) => {
 
         // Fetch all employees with status 'on'
         const [employees] = await db.execute(
-            `SELECT id FROM tb_employee WHERE status = 'on'`
+            `SELECT id FROM tb_employee WHERE status = 'on' and is_deleted='0'`
         );
 
         if (employees.length === 0) {
@@ -176,7 +176,7 @@ const CreateAllAttendance = async (req, res) => {
                 // Insert a new attendance record
                 await db.execute(
                     `INSERT INTO tb_attendance 
-                        (employee_id, working_day, Work_time_morning, lunch_break_out, lunch_break_in, afternoon_out, overtime_break, hours_worked, day_worked, overtime) 
+                        (employee_id, workday, Work_time_morning, lunch_break_out, lunch_break_in, afternoon_out, overtime_break, hours_worked, day_worked, overtime) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         employee_id,

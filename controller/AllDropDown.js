@@ -54,13 +54,13 @@ const GetDistrict = async (req, res) => {
 const GetSubDistrict = async (req, res) => {
     try {
         const { district_id } = req.query;
-        const [rows, fields] = await db.execute(s
+        const [rows, fields] = await db.execute(
             `SELECT sd.id as id,
             sd.zipcode as zipcode,
             sd.name_th as name_th,
             sd.name_en as name_en,
             sd.created_at as created_at
-            FROM sub-district as sd
+            FROM \`sub-district\` as sd
             WHERE sd._id='${district_id}'
             ORDER BY sd.created_at DESC`,
         )
@@ -94,7 +94,7 @@ const GetEmployee = async (req, res) => {
     } catch (error) {
         return res.status(500).send({
             success: false,
-            message: err.message,
+            message: error.message,
         })
     }
 }
@@ -104,7 +104,7 @@ const GetPayDetailsDrop = async (req, res) => {
         const [rows, fields] = await db.execute(
             `SELECT p.paydetails_id as paydetails_id ,
             p.paydetails_type as paydetails_type,
-            e.created_at as created_at
+            p.created_at as created_at
             FROM tb_paydetails as p`,
         )
         return res.status(200).send({
@@ -114,7 +114,7 @@ const GetPayDetailsDrop = async (req, res) => {
     } catch (error) {
         return res.status(500).send({
             success: false,
-            message: err.message,
+            message: error.message,
         })
     }
 }
@@ -134,7 +134,7 @@ const GetLeaves = async (req, res) => {
     } catch (error) {
         return res.status(500).send({
             success: false,
-            message: err.message,
+            message: error.message,
         })
     }
 }
@@ -154,7 +154,7 @@ const GetTransactionType = async (req, res) => {
     } catch (error) {
         return res.status(500).send({
             success: false,
-            message: err.message,
+            message: error.message,
         })
     }
 }
@@ -174,7 +174,7 @@ const GetBonusTransactionsType = async (req, res) => {
     } catch (error) {
         return res.status(500).send({
             success: false,
-            message: err.message,
+            message: error.message,
         })
     }
 }
@@ -194,7 +194,7 @@ const GetWorkerType = async (req, res) => {
     } catch (error) {
         return res.status(500).send({
             success: false,
-            message: err.message,
+            message: error.message,
         })
     }
 }

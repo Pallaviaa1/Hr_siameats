@@ -52,10 +52,10 @@ const getUsers = async (req, res) => {
 		const [rows, fields] = await db.execute(
 			`SELECT u.id as id,
 			u.role as role,
-			u.name as name
+			u.name as name,
 			u.email as email,
 			u.email_verified_at as email_verified_at,
-			u.remember_token as remember_token
+			u.remember_token as remember_token,
 			u.status as status,
 			u.last_login as last_login,
 			u.is_deleted as is_deleted,
@@ -70,10 +70,11 @@ const getUsers = async (req, res) => {
 	} catch (error) {
 		return res.status(500).send({
 			success: false,
-			message: err.message,
+			message: error.message,  // 'err' is undefined, should be 'error'
 		})
 	}
 }
+
 
 const CreateUsers = async (req, res) => {
 	try {

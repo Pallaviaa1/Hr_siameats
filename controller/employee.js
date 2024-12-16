@@ -8,7 +8,7 @@ const GetAllEmployee = async (req, res) => {
             `SELECT e.id as employee_id,
             e.f_name as f_name,
             e.l_name as l_name,
-            e.employee_status as employee_status,
+            e.status as employee_status,
             e.sort as sort,
             e.thai_id as thai_id,
             e.n_name as n_name,

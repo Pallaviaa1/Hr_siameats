@@ -7,12 +7,13 @@ const router = Router()
 const { adminLogin, getUsers, CreateUsers, UpdateUsers, UserReset } = require("../controller/admin/adminLogin")
 const { GetAllAttendance, CreateAttendance, CreateAllAttendance, UpdateAttendance, DeleteAttendance } = require("../controller/attendance")
 const { GetAllEmployee, CreateEmployee, UpdateEmployee, DeleteEmployee, EmployeeStatus } = require("../controller/employee")
-const { GetAllSalary, AddSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary } = require("../controller/salary")
+const { GetAllSalary, AddSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking } = require("../controller/salary")
 const { GetAllVacations, AddVacation, UpdateVacation, GetVacationById, DeleteVacation } = require("../controller/vacation")
 const { GetAllAdvancePayments, AddAdvancePayment, UpdateAdvancePayment, GetAdvancePaymentById, DeleteAdvancePayment } = require("../controller/advancePayments")
 const { GetAllbonusAndDeduction, AddbonusDeduction, UpdatebonusDeduction, GetbonusDeductionById, DeletebonusDeduction } = require("../controller/bonusDeduction")
 const { GetAllcontract, Addcontract, Updatecontract, GetcontractById, Deletecontract } = require("../controller/contract")
 const { GetProvinces, GetDistrict, GetSubDistrict, GetEmployee, GetPayDetailsDrop, GetLeaves, GetTransactionType, GetBonusTransactionsType, GetWorkerType } = require("../controller/AllDropDown")
+const { GetMenu } = require('../controller/menu')
 
 const storage = multer.diskStorage({
 	destination: (req, file, cb) => {
@@ -82,6 +83,7 @@ router.post("/UpdateSalary", UpdateSalary)
 router.post("/EmpAttendanceByMonth", EmpAttendanceByMonth)
 router.post("/GetSalaryById", GetSalaryById)
 router.post("/DeleteSalary", DeleteSalary)
+router.post("/GetEmployeeWorking", GetEmployeeWorking)
 
 //vacation.js
 router.get("/GetAllVacations", GetAllVacations)
@@ -121,5 +123,9 @@ router.get("/GetLeaves", GetLeaves)
 router.get("/GetTransactionType", GetTransactionType)
 router.get("/GetBonusTransactionsType", GetBonusTransactionsType)
 router.get("/GetWorkerType", GetWorkerType)
+
+// menu.js
+
+router.get("/GetMenu", GetMenu)
 
 module.exports = router

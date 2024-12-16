@@ -55,8 +55,11 @@ const GetAllSalary = async (req, res) => {
 
 const AddSalary = async (req, res) => {
     try {
-        const { month, employee_id, employee_name, paydetails_id, basic_salary, overtime, ot_rate, total_ot, housing, bonus,
-            total_earning, sso, deduction, payback, total_deduct, net_income, reason, sick, sick_balance, annual, annual_balance, borrow, advance_borrow } = req.body;
+        const { month, employee_id, employee_name, paydetails_id, bankname, basic_salary, overtime, ot_rate, total_ot,
+            housing, bonus, total_earning, sso, deduction, payback,
+            total_deduct, net_income, reason, sick, sick_balance, annual, annual_balance, borrow, advance_borrow } = req.body;
+        console.log(req.body);
+
         const [existingRecord] = await db.execute(
             `SELECT id FROM tb_salary WHERE employee_id = ? AND month = ?`,
             [employee_id, month]
@@ -70,9 +73,9 @@ const AddSalary = async (req, res) => {
         }
         else {
             const [rows, fields] = await db.execute(
-                `INSERT into tb_salary (month, employee_id, employee_name, paydetails_id, basic_salary, overtime, ot_rate, total_ot, housing, bonus,
-                total_earning, sso, deduction, payback, total_deduct, net_income, reason, sick, sick_balance, annual, annual_balance, borrow, advance_borrow ) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-                [month, employee_id, employee_name, paydetails_id, basic_salary, overtime, ot_rate, total_ot, housing, bonus,
+                `INSERT into tb_salary (month, employee_id, employee_name, paydetails_id, bankname, basic_salary, overtime, ot_rate, total_ot, housing, bonus,
+                total_earning, sso, deduction, payback, total_deduct, net_income, reason, sick, sick_balance, annual, annual_balance, borrow, advance_borrow ) values (?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+                [month, employee_id, employee_name, paydetails_id, bankname, basic_salary, overtime, ot_rate, total_ot, housing, bonus,
                     total_earning, sso, deduction, payback, total_deduct, net_income, reason, sick, sick_balance, annual, annual_balance, borrow, advance_borrow])
 
             return res.status(200).send({
@@ -85,7 +88,7 @@ const AddSalary = async (req, res) => {
     } catch (error) {
         return res.status(500).send({
             success: false,
-            message: err.message,
+            message: error.message,
         })
     }
 }
@@ -119,6 +122,7 @@ const UpdateSalary = async (req, res) => {
             borrow,
             advance_borrow
         } = req.body;
+console.log(req.body);
 
         // Check if the record exists
         const [existingRecord] = await db.execute(
@@ -327,4 +331,176 @@ const DeleteSalary = async (req, res) => {
 };
 
 
-module.exports = { GetAllSalary, AddSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary }
+const GetEmployeeWorking = async (req, res) => {
+    try {
+        const { month, employee } = req.body;
+
+        if (!month || !employee) {
+            return res.status(400).send({
+                success: false,
+                message: "Month and Employee ID are required",
+            });
+        }
+
+        const [year, selectedMonth] = month.split('-');
+        const monthPattern = `${year}-${selectedMonth}%`;
+
+        let data = {};
+
+        // Fetch overtime
+        const [overtime] = await db.execute(
+            `SELECT SUM(overtime) AS total FROM tb_attendance WHERE employee_id = ? AND workday LIKE ?`,
+            [employee, monthPattern]
+        );
+        data.overtime = overtime[0]?.total || 0;
+
+        // Fetch hours worked
+        const [hoursWorked] = await db.execute(
+            `SELECT SUM(hours_worked) AS total FROM tb_attendance WHERE employee_id = ? AND workday LIKE ?`,
+            [employee, monthPattern]
+        );
+        data.hours_worked = hoursWorked[0]?.total || 0;
+
+        // Fetch days worked
+        const [daysWorked] = await db.execute(
+            `SELECT SUM(day_worked) AS total FROM tb_attendance WHERE employee_id = ? AND workday LIKE ?`,
+            [employee, monthPattern]
+        );
+        data.day_worked = daysWorked[0]?.total || 0;
+
+        // Fetch employee details
+        const [employeeDetails] = await db.execute(
+            `SELECT * FROM tb_employee WHERE id = ?`,
+            [employee]
+        );
+
+        if (employeeDetails.length === 0) {
+            return res.status(404).send({
+                success: false,
+                message: "Employee not found",
+            });
+        }
+
+        const emp = employeeDetails[0];
+        data.employee_start_date = new Date(emp.employee_startdate).toLocaleDateString();
+        data.employee_name = `${emp.f_name} ${emp.l_name}`;
+        data.worker_id = emp.worker_id;
+        data.bankname = emp.bankname;
+
+        // Fetch vacation details
+        const [annual] = await db.execute(
+            `SELECT SUM(days) AS total FROM tb_vacation WHERE employee_id = ? AND start_date LIKE ? AND leaves_id = ?`,
+            [employee, `${year}%`, 1]
+        );
+        data.annual = annual[0]?.total || 0;
+
+        const [sick] = await db.execute(
+            `SELECT SUM(days) AS total FROM tb_vacation WHERE employee_id = ? AND start_date LIKE ? AND leaves_id = ?`,
+            [employee, `${year}%`, 2]
+        );
+        data.sick = sick[0]?.total || 0;
+
+        // Fetch contract details
+        const [salary] = await db.execute(
+            `SELECT * FROM tb_contract WHERE employee_id = ? ORDER BY id DESC LIMIT 1`,
+            [employee]
+        );
+
+        if (salary.length > 0) {
+            const sal = salary[0];
+            if (sal.worker_id === '1') {
+                const [countDayWork] = await db.execute(
+                    `SELECT COUNT(id) AS total FROM tb_attendance WHERE employee_id = ? AND workday LIKE ?`,
+                    [employee, monthPattern]
+                );
+
+                data.sso = parseFloat(sal.sso * countDayWork[0]?.total).toFixed(2);
+                data.basic_salary = parseFloat(sal.basic_salary * countDayWork[0]?.total).toFixed(2);
+            } else {
+                data.sso = sal.sso;
+                data.basic_salary = sal.basic_salary;
+            }
+        } else {
+            data.sso = 0;
+            data.basic_salary = 0;
+        }
+
+        // Fetch additional details
+        const [otRate] = await db.execute(
+            `SELECT SUM(ot_rate) AS total FROM tb_contract WHERE employee_id = ?`,
+            [employee]
+        );
+        data.ot_rate = otRate[0]?.total || 0;
+
+        const [sickLeave] = await db.execute(
+            `SELECT SUM(sick_leave) AS total FROM tb_contract WHERE employee_id = ?`,
+            [employee]
+        );
+        data.sick_leave = sickLeave[0]?.total || 0;
+
+        const [housing] = await db.execute(
+            `SELECT SUM(housing) AS total FROM tb_contract WHERE employee_id = ?`,
+            [employee]
+        );
+        data.housing = housing[0]?.total || 0;
+
+        const [personalLeave] = await db.execute(
+            `SELECT SUM(personal_leave) AS total FROM tb_contract WHERE employee_id = ?`,
+            [employee]
+        );
+        data.personal_leave = personalLeave[0]?.total || 0;
+
+        const [bonus] = await db.execute(
+            `SELECT SUM(amount) AS total FROM tb_bonusanddeduction WHERE employee_id = ? AND transactions_id = 1`,
+            [employee]
+        );
+        data.bonus = bonus[0]?.total || 0;
+
+        const [deduction] = await db.execute(
+            `SELECT SUM(amount) AS total FROM tb_bonusanddeduction WHERE employee_id = ? AND transactions_id = 2`,
+            [employee]
+        );
+        data.deduction = deduction[0]?.total || 0;
+
+        const [bonusDeduction] = await db.execute(
+            `SELECT reason FROM tb_bonusanddeduction WHERE employee_id = ? LIMIT 1`,
+            [employee]
+        );
+        data.reason = bonusDeduction.length > 0 ? bonusDeduction[0].reason : '';
+
+        const [borrow] = await db.execute(
+            `SELECT SUM(amount) AS total FROM tb_advancepayments WHERE employee_id = ? AND transaction_id = 1`,
+            [employee]
+        );
+
+        const [payback] = await db.execute(
+            `SELECT SUM(amount) AS total FROM tb_advancepayments WHERE employee_id = ? AND transaction_id = 2`,
+            [employee]
+        );
+
+        const [paybackMonth] = await db.execute(
+            `SELECT SUM(amount) AS total FROM tb_advancepayments WHERE employee_id = ? AND transaction_date LIKE ? AND transaction_id = 2`,
+            [employee, monthPattern]
+        );
+
+        data.advance_borrow = (borrow[0]?.total || 0) - (payback[0]?.total || 0);
+        data.balance_borrow = borrow[0]?.total - data.advance_borrow;
+        data.borrow = borrow[0]?.total || 0;
+        data.payback_month = paybackMonth[0]?.total || 0;
+        data.total_ot = data.ot_rate * data.overtime || 0;
+        data.sick_balance = parseInt(data.sick_leave || 0) - parseInt(data.sick || 0);
+        data.annual_balance = parseInt(data.personal_leave || 0) - parseInt(data.annual || 0);
+
+        res.status(200).send({
+            success: true,
+            data,
+        });
+    } catch (error) {
+        res.status(500).send({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+module.exports = { GetAllSalary, AddSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking }
