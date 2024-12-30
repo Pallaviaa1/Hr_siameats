@@ -53,7 +53,7 @@ const AddVacation = async (req, res) => {
     } catch (error) {
         return res.status(500).send({
             success: false,
-            message: err.message,
+            message: error.message,
         })
     }
 }

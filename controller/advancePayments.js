@@ -62,6 +62,7 @@ const UpdateAdvancePayment = async (req, res) => {
         const {
             advancePayment_id, employee_id, transaction_date, transaction_id, amount
         } = req.body;
+console.log(req.body);
 
         // Check if the record exists
         const [existingRecord] = await db.execute(

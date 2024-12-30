@@ -1,10 +1,4 @@
 
-/* let config = {
-	host: "localhost",
-	user: 'siameats_terpdbadmin',
-	password: 'terpdbadmin@1oct',
-	database: 'siameats_terp'
-} */
 
 let config = {
 	host: "localhost",
@@ -16,12 +10,15 @@ let config = {
 }
 
 
-/* let config = {
+/*let config = {
 	host: "localhost",
-	user: 'siameats_siameatsterp',
-	password: 'iFq(6K^+tIT4',
-	database: 'siameats_siameatsterp'
+	port: '3306',
+	user: 'siameats_hr',
+	password: '6dgW^078v',
+	//database: 'terpdp'
+	database:'siameats_hr'
 }
+
  */
 if (process.env.NODE_ENV === "production") {
 	config = {

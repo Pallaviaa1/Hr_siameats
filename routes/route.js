@@ -4,7 +4,7 @@ const path = require('path');
 const { rollback } = require("../db/dbConnection");
 const router = Router()
 
-const { adminLogin, getUsers, CreateUsers, UpdateUsers, UserReset } = require("../controller/admin/adminLogin")
+const { adminLogin, getUsers, CreateUsers, UpdateUsers, UserReset, DeleteUser, UserStatus, DeleteAllUsers } = require("../controller/admin/adminLogin")
 const { GetAllAttendance, CreateAttendance, CreateAllAttendance, UpdateAttendance, DeleteAttendance } = require("../controller/attendance")
 const { GetAllEmployee, CreateEmployee, UpdateEmployee, DeleteEmployee, EmployeeStatus } = require("../controller/employee")
 const { GetAllSalary, AddSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking } = require("../controller/salary")
@@ -13,7 +13,7 @@ const { GetAllAdvancePayments, AddAdvancePayment, UpdateAdvancePayment, GetAdvan
 const { GetAllbonusAndDeduction, AddbonusDeduction, UpdatebonusDeduction, GetbonusDeductionById, DeletebonusDeduction } = require("../controller/bonusDeduction")
 const { GetAllcontract, Addcontract, Updatecontract, GetcontractById, Deletecontract } = require("../controller/contract")
 const { GetProvinces, GetDistrict, GetSubDistrict, GetEmployee, GetPayDetailsDrop, GetLeaves, GetTransactionType, GetBonusTransactionsType, GetWorkerType } = require("../controller/AllDropDown")
-const { GetMenu } = require('../controller/menu')
+const { GetMenu, AddMenu, UpdateMenu, DeleteMenu, ChangeMenuStatus } = require('../controller/menu')
 
 const storage = multer.diskStorage({
 	destination: (req, file, cb) => {
@@ -61,6 +61,9 @@ router.get("/getUsers", getUsers)
 router.post("/CreateUsers", CreateUsers)
 router.post("/UpdateUsers", UpdateUsers)
 router.post("/UserReset", UserReset)
+router.post("/DeleteUser", DeleteUser)
+router.post("/UserStatus", UserStatus)
+router.post("/DeleteAllUsers", DeleteAllUsers)
 
 // attendance.js
 router.get("/GetAllAttendance", GetAllAttendance)
@@ -125,7 +128,10 @@ router.get("/GetBonusTransactionsType", GetBonusTransactionsType)
 router.get("/GetWorkerType", GetWorkerType)
 
 // menu.js
-
 router.get("/GetMenu", GetMenu)
+router.post("/AddMenu", AddMenu)
+router.post("/UpdateMenu", UpdateMenu)
+router.post("/DeleteMenu", DeleteMenu)
+router.post("/ChangeMenuStatus", ChangeMenuStatus)
 
 module.exports = router

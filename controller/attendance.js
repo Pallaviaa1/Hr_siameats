@@ -48,7 +48,7 @@ const GetAllAttendance = async (req, res) => {
             FROM tb_attendance as a
             LEFT JOIN tb_employee as e ON e.id=a.employee_id
             WHERE a.is_deleted='${0}'
-            ORDER BY a.created_at DESC`,
+            ORDER BY a.id DESC`,
         )
         return res.status(200).send({
             success: true,
@@ -142,7 +142,7 @@ const CreateAllAttendance = async (req, res) => {
 
             // Check if attendance already exists for the working day
             const [existingAttendance] = await db.execute(
-                `SELECT id FROM tb_attendance WHERE employee_id = ? AND working_day = ?`,
+                `SELECT id FROM tb_attendance WHERE employee_id = ? AND workday = ?`,
                 [employee_id, working_day]
             );
 
@@ -150,7 +150,7 @@ const CreateAllAttendance = async (req, res) => {
                 // Update the existing attendance record
                 await db.execute(
                     `UPDATE tb_attendance SET 
-                        Work_time_morning = ?, 
+                        morning_in = ?, 
                         lunch_break_out = ?, 
                         lunch_break_in = ?, 
                         afternoon_out = ?, 
@@ -158,7 +158,7 @@ const CreateAllAttendance = async (req, res) => {
                         hours_worked = ?, 
                         day_worked = ?, 
                         overtime = ? 
-                    WHERE employee_id = ? AND working_day = ?`,
+                    WHERE employee_id = ? AND workday = ?`,
                     [
                         Work_time_morning,
                         lunch_break_out,
@@ -176,7 +176,7 @@ const CreateAllAttendance = async (req, res) => {
                 // Insert a new attendance record
                 await db.execute(
                     `INSERT INTO tb_attendance 
-                        (employee_id, workday, Work_time_morning, lunch_break_out, lunch_break_in, afternoon_out, overtime_break, hours_worked, day_worked, overtime) 
+                        (employee_id, workday, morning_in, lunch_break_out, lunch_break_in, afternoon_out, overtime_break, hours_worked, day_worked, overtime) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         employee_id,
@@ -195,7 +195,13 @@ const CreateAllAttendance = async (req, res) => {
         }
 
         const [attendanceList] = await db.execute(
-            `SELECT * FROM tb_attendance WHERE working_day = ?`,
+            `SELECT a.*, 
+       e.f_name AS f_name, 
+       e.l_name AS l_name,
+       e.n_name AS n_name 
+       FROM tb_attendance AS a
+       LEFT JOIN tb_employee AS e ON e.id = a.employee_id
+       WHERE workday = ?`,
             [working_day]
         );
 
@@ -243,8 +249,8 @@ const UpdateAttendance = async (req, res) => {
         const [rows] = await db.execute(
             `UPDATE tb_attendance SET 
                 employee_id = ?, 
-                working_day = ?, 
-                Work_time_morning = ?, 
+                workday = ?, 
+                morning_in = ?, 
                 lunch_break_out = ?, 
                 lunch_break_in = ?, 
                 afternoon_out = ?, 
@@ -281,7 +287,7 @@ const DeleteAttendance = async (req, res) => {
 
         // Check if the attendance record exists
         const [existingAttendance] = await db.execute(
-            `SELECT * FROM tb_attendance WHERE id = ? and is_deleted=0`,
+            `SELECT * FROM tb_attendance WHERE id = ? and is_deleted=?`,
             [attendance_id, 0]
         );
 

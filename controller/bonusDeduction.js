@@ -39,6 +39,7 @@ const AddbonusDeduction = async (req, res) => {
     try {
         const { employee_id, transactions_date, amount, transactions_id, reason } = req.body;
 
+
         const [rows, fields] = await db.execute(
             `INSERT into tb_bonusanddeduction (employee_id, transactions_date, amount, transactions_id, reason ) values (?,?,?,?,?)`,
             [employee_id, transactions_date, amount, transactions_id, reason])
@@ -52,7 +53,7 @@ const AddbonusDeduction = async (req, res) => {
     } catch (error) {
         return res.status(500).send({
             success: false,
-            message: err.message,
+            message: error.message,
         })
     }
 }

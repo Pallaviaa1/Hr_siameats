@@ -122,7 +122,7 @@ const UpdateSalary = async (req, res) => {
             borrow,
             advance_borrow
         } = req.body;
-console.log(req.body);
+        console.log(req.body);
 
         // Check if the record exists
         const [existingRecord] = await db.execute(
@@ -161,7 +161,7 @@ console.log(req.body);
                 [
                     month,
                     employee_id,
-                    bankname,
+                    bankname || null,
                     paydetails_id,
                     basic_salary,
                     overtime,
@@ -392,6 +392,8 @@ const GetEmployeeWorking = async (req, res) => {
             `SELECT SUM(days) AS total FROM tb_vacation WHERE employee_id = ? AND start_date LIKE ? AND leaves_id = ?`,
             [employee, `${year}%`, 1]
         );
+        console.log(annual);
+
         data.annual = annual[0]?.total || 0;
 
         const [sick] = await db.execute(
@@ -408,7 +410,8 @@ const GetEmployeeWorking = async (req, res) => {
 
         if (salary.length > 0) {
             const sal = salary[0];
-            if (sal.worker_id === '1') {
+
+            if (sal.worker_id == '1') {
                 const [countDayWork] = await db.execute(
                     `SELECT COUNT(id) AS total FROM tb_attendance WHERE employee_id = ? AND workday LIKE ?`,
                     [employee, monthPattern]
@@ -454,6 +457,8 @@ const GetEmployeeWorking = async (req, res) => {
             `SELECT SUM(amount) AS total FROM tb_bonusanddeduction WHERE employee_id = ? AND transactions_id = 1`,
             [employee]
         );
+
+
         data.bonus = bonus[0]?.total || 0;
 
         const [deduction] = await db.execute(
@@ -482,11 +487,15 @@ const GetEmployeeWorking = async (req, res) => {
             `SELECT SUM(amount) AS total FROM tb_advancepayments WHERE employee_id = ? AND transaction_date LIKE ? AND transaction_id = 2`,
             [employee, monthPattern]
         );
+        console.log(data.sick_leave);
+        console.log(data.sick);
+
 
         data.advance_borrow = (borrow[0]?.total || 0) - (payback[0]?.total || 0);
         data.balance_borrow = borrow[0]?.total - data.advance_borrow;
-        data.borrow = borrow[0]?.total || 0;
+        data.borrow = data.balance_borrow || 0;
         data.payback_month = paybackMonth[0]?.total || 0;
+        data.payback = payback[0]?.total || 0;
         data.total_ot = data.ot_rate * data.overtime || 0;
         data.sick_balance = parseInt(data.sick_leave || 0) - parseInt(data.sick || 0);
         data.annual_balance = parseInt(data.personal_leave || 0) - parseInt(data.annual || 0);

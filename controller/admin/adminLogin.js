@@ -25,7 +25,7 @@ const adminLogin = async (req, res) => {
 		const user = rows[0];
 
 		// Check if the user's status is Inactive
-		if (user.status !== 'active') {
+		if (user.status !== 'on') {
 			throw new Error("Account is Banned. Please contact support.");
 		}
 
@@ -194,4 +194,88 @@ const DeleteUser = async (req, res) => {
 	}
 };
 
-module.exports = { adminLogin, getUsers, CreateUsers, UpdateUsers, UserReset }
+const UserStatus = async (req, res) => {
+	try {
+		const { user_id } = req.body;
+
+		// Check if the employee exists
+		const [existingUser] = await db.execute(
+			`SELECT status FROM users WHERE id = ?`,
+			[user_id]
+		);
+
+		if (existingUser.length === 0) {
+			return res.status(400).send({
+				success: false,
+				message: "User not found."
+			});
+		}
+
+		// Toggle the status
+		const currentStatus = existingUser[0].status;
+		const newStatus = currentStatus === 'on' ? 'off' : 'on';
+
+		const [rows] = await db.execute(
+			`UPDATE users SET status = ? WHERE id = ?`,
+			[newStatus, user_id]
+		);
+
+		return res.status(200).send({
+			success: true,
+			message: `User status changed to ${newStatus}`,
+			data: rows
+		});
+	} catch (err) {
+		return res.status(500).send({
+			success: false,
+			message: err.message
+		});
+	}
+};
+
+const DeleteAllUsers = async (req, res) => {
+	try {
+		const { id } = req.body; // Expecting `id` to be an array of user IDs
+
+		if (!Array.isArray(id) || id.length === 0) {
+			return res.status(400).send({
+				success: false,
+				message: "No valid user IDs provided."
+			});
+		}
+
+		// Check if the provided IDs exist and are not already deleted
+		const [existingUsers] = await db.execute(
+			`SELECT * FROM users WHERE id IN (?) AND is_deleted = ?`,
+			[id, 0]
+		);
+
+		if (existingUsers.length === 0) {
+			return res.status(404).send({
+				success: false,
+				message: "No active users found for the provided IDs."
+			});
+		}
+
+		// Mark the specified users as deleted
+		const [result] = await db.execute(
+			`UPDATE users SET is_deleted = ? WHERE id IN (?) AND is_deleted = ?`,
+			[1, id, 0]
+		);
+
+		return res.status(200).send({
+			success: true,
+			message: "Users deleted successfully.",
+			affectedRows: result.affectedRows
+		});
+	} catch (err) {
+		return res.status(500).send({
+			success: false,
+			message: "An error occurred while deleting users.",
+			error: err.message
+		});
+	}
+};
+
+
+module.exports = { adminLogin, getUsers, CreateUsers, UpdateUsers, UserReset, DeleteUser, UserStatus, DeleteAllUsers }
