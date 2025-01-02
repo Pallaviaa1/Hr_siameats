@@ -15,12 +15,12 @@ const GetAllAttendance = async (req, res) => {
             a.afternoon_out as afternoon_out,
             a.sort as sort,
             a.hours_worked as hours_worked,
-            a.afternoon_out as day_worked,
-            a.sort as overtime,
-            a.hours_worked as overtime_break,
-            a.sort as update_at,
-            a.hours_worked as created_at,
-            e.id as employee_id,
+            a.day_worked as day_worked,
+            a.overtime as overtime,
+            a.overtime_break as overtime_break,
+            a.update_at as update_at,
+            a.created_at as created_at,
+            e.id as Employee_id,
             e.f_name as f_name,
             e.l_name as l_name,
             e.status as employee_status,
@@ -124,6 +124,7 @@ const CreateAllAttendance = async (req, res) => {
             day_worked,
             overtime
         } = req.body;
+        console.log(req.body);
 
         // Fetch all employees with status 'on'
         const [employees] = await db.execute(
