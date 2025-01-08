@@ -1,6 +1,8 @@
 const bcrypt = require("bcryptjs")
 const { db } = require("../db/db2")
 const sendMail = require('../helpers/sendMail');
+const fs = require('fs');
+const path = require('path');
 
 const GetAllSalary = async (req, res) => {
     try {
@@ -208,6 +210,7 @@ const UpdateSalary = async (req, res) => {
 const EmpAttendanceByMonth = async (req, res) => {
     try {
         const { month, employee_id } = req.body;
+console.log(req.body);
 
         const [rows, fields] = await db.execute(
             `SELECT 
@@ -512,4 +515,48 @@ const GetEmployeeWorking = async (req, res) => {
     }
 };
 
-module.exports = { GetAllSalary, AddSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking }
+const UploadPdf = async (req, res) => {
+    try {
+        if (!req.file) {
+            // Handle case where file is not present in the request
+            console.error('No file uploaded');
+            return res.status(400).json({
+                success: false,
+                message: 'No file uploaded'
+            });
+        }
+
+        const document = req.file.filename;
+        const uploadFolderPath = path.join(__dirname, '../public/image');  // Adjust to your folder path
+
+        // Extract the base name from the uploaded file (e.g., 'INV-202412040' part)
+        const baseName = document.split('_')[0]; // Assuming filename format like 'INV-202412040_Invoice_30-12-2024'
+
+        // Read all files in the upload folder
+        const files = fs.readdirSync(uploadFolderPath);
+
+        // Iterate through the files and delete those that start with the same base name, except the current one
+        files.forEach((file) => {
+            if (file.startsWith(baseName) && file !== document) {  // Skip the current file
+                const filePath = path.join(uploadFolderPath, file);
+                fs.unlinkSync(filePath);  // Delete the file
+                console.log(`Deleted existing file: ${file}`);
+            }
+        });
+
+        // Now the file has been deleted, proceed with uploading the new file
+        res.status(200).json({
+            success: true,
+            message: 'Uploaded and old files deleted successfully (excluding the current one)'
+        });
+    } catch (error) {
+        console.error('Error in file upload:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
+
+module.exports = { GetAllSalary, AddSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking, UploadPdf }

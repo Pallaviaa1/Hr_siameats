@@ -7,7 +7,7 @@ const router = Router()
 const { adminLogin, getUsers, CreateUsers, UpdateUsers, UserReset, DeleteUser, UserStatus, DeleteAllUsers } = require("../controller/admin/adminLogin")
 const { GetAllAttendance, CreateAttendance, CreateAllAttendance, UpdateAttendance, DeleteAttendance } = require("../controller/attendance")
 const { GetAllEmployee, CreateEmployee, UpdateEmployee, DeleteEmployee, EmployeeStatus } = require("../controller/employee")
-const { GetAllSalary, AddSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking } = require("../controller/salary")
+const { GetAllSalary, AddSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking, UploadPdf } = require("../controller/salary")
 const { GetAllVacations, AddVacation, UpdateVacation, GetVacationById, DeleteVacation } = require("../controller/vacation")
 const { GetAllAdvancePayments, AddAdvancePayment, UpdateAdvancePayment, GetAdvancePaymentById, DeleteAdvancePayment } = require("../controller/advancePayments")
 const { GetAllbonusAndDeduction, AddbonusDeduction, UpdatebonusDeduction, GetbonusDeductionById, DeletebonusDeduction } = require("../controller/bonusDeduction")
@@ -87,6 +87,8 @@ router.post("/EmpAttendanceByMonth", EmpAttendanceByMonth)
 router.post("/GetSalaryById", GetSalaryById)
 router.post("/DeleteSalary", DeleteSalary)
 router.post("/GetEmployeeWorking", GetEmployeeWorking)
+router.post("/UploadPdf", uploads.single('document'), UploadPdf)
+
 
 //vacation.js
 router.get("/GetAllVacations", GetAllVacations)
