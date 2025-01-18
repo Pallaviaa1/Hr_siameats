@@ -251,5 +251,52 @@ const EmployeeStatus = async (req, res) => {
     }
 };
 
+const GetContractByEmployeeId = async (req, res) => {
+    try {
+        const { employee_id } = req.body;
+        if (!employee_id) {
+            return res.status(400).send({
+                success: false,
+                message: "Provide employee id."
+            });
+        }
+        const [existingEmployee] = await db.execute(
+            `SELECT c.*, e.f_name as f_name,
+            e.l_name as l_name,
+            e.n_name as n_name,
+            w.worker_type as worker_type FROM tb_contract as c
+            LEFT JOIN tb_employee as e ON e.id=c.employee_id
+            LEFT JOIN tb_worker as w ON w.worker_id =c.worker_id
+            WHERE c.employee_id = ?`,
+            [employee_id]
+        );
+        return res.status(200).send({
+            success: true,
+            data: existingEmployee?.[0] || {}
+        });
+    } catch (error) {
+        return res.status(500).send({
+            success: false,
+            message: error.message
+        });
+    }
+}
 
-module.exports = { GetAllEmployee, CreateEmployee, UpdateEmployee, DeleteEmployee, EmployeeStatus }
+const ActiveEmployee = async (req, res) => {
+    try {
+        const [employees] = await db.execute(
+            `SELECT * FROM tb_employee WHERE status = 'on' and is_deleted='0'`
+        );
+        return res.status(200).send({
+            success: true,
+            data: employees
+        });
+    } catch (error) {
+        return res.status(500).send({
+            success: false,
+            message: error.message
+        });
+    }
+}
+
+module.exports = { GetAllEmployee, CreateEmployee, UpdateEmployee, DeleteEmployee, EmployeeStatus, GetContractByEmployeeId, ActiveEmployee }

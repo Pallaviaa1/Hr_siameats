@@ -38,8 +38,10 @@ const GetAllSalary = async (req, res) => {
             s.reason as reason,
             s.sort as sort,
             s.is_deleted as is_deleted,
-            s.created_at as created_at
+            s.created_at as created_at,
+            p.paydetails_type 
             FROM tb_salary as s
+            INNER JOIN  tb_paydetails as p on p.paydetails_id=s.paydetails_id
             WHERE s.is_deleted='${0}'
             ORDER BY s.created_at DESC`,
         )
@@ -54,6 +56,93 @@ const GetAllSalary = async (req, res) => {
         })
     }
 }
+
+const GetMultipleSalary = async (req, res) => {
+    try {
+        const { employee_ids, month } = req.body; // Expecting an array of employee IDs
+        console.log("Request Body:", req.body);
+
+        // Validate input
+        if (!Array.isArray(employee_ids) || employee_ids.length === 0) {
+            return res.status(400).send({
+                success: false,
+                message: "Employee IDs must be provided as a non-empty array."
+            });
+        }
+
+        // Fetch salary details for all employee IDs
+        const ALLdata = [];
+
+        for (const employee_id of employee_ids) {
+            console.log("Fetching salary for employee_id:", employee_id);
+
+            const query = `
+                SELECT 
+                    s.id AS salary_id,
+                    s.month AS month,
+                    s.employee_id AS employee_id,
+                    s.employee_name AS employee_name,
+                    s.paydetails_id AS paydetails_id,
+                    s.bankname AS bankname,
+                    s.basic_salary AS basic_salary,
+                    s.overtime AS overtime,
+                    s.total_ot AS total_ot,
+                    s.ot_rate AS ot_rate,
+                    s.housing AS housing,
+                    s.bonus AS bonus,
+                    s.total_earning AS total_earning,
+                    s.sso AS sso,
+                    s.days AS days,
+                    s.days_thb AS days_thb,
+                    s.deduction AS deduction,
+                    s.payback AS payback,
+                    s.total_deduct AS total_deduct,
+                    s.net_income AS net_income,
+                    s.sick AS sick,
+                    s.sick_balance AS sick_balance,
+                    s.sick_leave AS sick_leave,
+                    s.annual AS annual,
+                    s.annual_balance AS annual_balance,
+                    s.personal_leave AS personal_leave,
+                    s.borrow AS borrow,
+                    s.advance_borrow AS advance_borrow,
+                    s.reason AS reason,
+                    s.sort AS sort,
+                    s.is_deleted AS is_deleted,
+                    s.created_at AS created_at,
+                    p.paydetails_type 
+                FROM tb_salary AS s
+                INNER JOIN tb_paydetails AS p ON p.paydetails_id = s.paydetails_id
+                WHERE s.is_deleted = 0 AND s.employee_id = ? AND month=?
+                ORDER BY s.created_at DESC
+            `;
+
+            // Execute query for the current employee_id
+            const [rows] = await db.execute(query, [employee_id, month]);
+
+            // Add fetched data to the result array
+            ALLdata.push(...rows);
+        }
+
+        // Log fetched data for debugging
+        console.log("Fetched Data:", ALLdata);
+
+        // Send response
+        return res.status(200).send({
+            success: true,
+            data: ALLdata,
+        });
+    } catch (err) {
+        console.error("Error:", err.message);
+        return res.status(500).send({
+            success: false,
+            message: "Internal Server Error",
+            error: err.message,
+        });
+    }
+};
+
+
 
 const AddSalary = async (req, res) => {
     try {
@@ -95,6 +184,321 @@ const AddSalary = async (req, res) => {
     }
 }
 
+
+const AddAllEmployeeSalary = async (req, res) => {
+    try {
+        const { salaries } = req.body; // Array of salary records
+        console.log(req.body);
+
+        if (!salaries || !Array.isArray(salaries)) {
+            return res.status(400).send({
+                success: false,
+                message: "Invalid input. 'salaries' should be an array of salary records.",
+            });
+        }
+
+        const successfulSalaries = [];
+        const failedSalaries = [];
+
+        for (const salary of salaries) {
+            const {
+                month, employee_id, employee_name, bankname, basic_salary, overtime, ot_rate, total_ot,
+                housing, bonus, sso, deduction, payback,
+                reason, sick, sick_balance, annual, annual_balance, borrow, advance_borrow,
+            } = salary;
+
+            try {
+                // Check if the salary record already exists
+                const [existingRecord] = await db.execute(
+                    `SELECT id FROM tb_salary WHERE employee_id = ? AND month = ? AND is_deleted=?`,
+                    [employee_id, month, 0]
+                );
+
+                if (existingRecord.length > 0) {
+                    failedSalaries.push({
+                        employee_id,
+                        message: "Salary record already exists for the given employee and month.",
+                    });
+                    continue; // Skip this record
+                }
+                let total_deduct = parseFloat(sso) + parseFloat(payback) + parseFloat(deduction);
+                total_deduct = total_deduct.toFixed(2);
+
+                let total_earning = parseFloat(basic_salary) + parseFloat(total_ot) + parseFloat(housing) + parseFloat(bonus);
+                total_earning = total_earning.toFixed(2);
+
+                let net_income = total_earning - total_deduct;
+                net_income = net_income.toFixed(2);
+
+                let advanceBorrow;
+                if (payback && advance_borrow) {
+                    advanceBorrow = advance_borrow - payback; // Update the outer variable
+                }
+
+                // Insert the new salary record
+                const [result] = await db.execute(
+                    `INSERT INTO tb_salary 
+                        (month, employee_id, employee_name, paydetails_id, bankname, basic_salary, overtime, ot_rate, total_ot, housing, bonus, 
+                        total_earning, sso, deduction, payback, total_deduct, net_income, reason, sick, sick_balance, annual, annual_balance, borrow, advance_borrow)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        month, employee_id, employee_name, 1, bankname, basic_salary, overtime, ot_rate, total_ot, housing, bonus,
+                        total_earning, sso, deduction, payback, total_deduct, net_income, reason, sick, sick_balance, annual, annual_balance,
+                        borrow, advanceBorrow || null,
+                    ]
+                );
+
+                // Add to successful salaries
+                successfulSalaries.push({
+                    employee_id,
+                    message: "Salary added successfully.",
+                    id: result.insertId,
+                });
+            } catch (error) {
+                // Handle errors for this salary record
+                success: false,
+                    failedSalaries.push({
+                        employee_id,
+                        message: error.message,
+                    });
+            }
+        }
+
+        return res.status(200).send({
+            success: true,
+            message: "Salary processing completed.",
+            successfulSalaries,
+            failedSalaries,
+        });
+    } catch (error) {
+        return res.status(500).send({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+/* const GetSalariesForMultipleEmployees = async (req, res) => {
+    try {
+        const { month, employee_ids } = req.body;
+
+        if (!month || !Array.isArray(employee_ids) || employee_ids.length === 0) {
+            return res.status(400).send({
+                success: false,
+                message: "Month and Employee IDs are required",
+            });
+        }
+
+        const [year, selectedMonth] = month.split('-');
+        const monthPattern = `${year}-${selectedMonth}%`;
+
+        let allEmployeeData = [];
+
+        // Loop through each employee ID to fetch the salary details
+        for (const employee_id of employee_ids) {
+            let data = {};
+
+            // Fetch overtime
+            const [overtime] = await db.execute(
+                `SELECT SUM(overtime) AS total FROM tb_attendance WHERE employee_id = ? AND is_deleted = 0 AND workday LIKE ?`,
+                [employee_id, monthPattern]
+            );
+            data.overtime = overtime[0]?.total || 0;
+
+            // Fetch hours worked
+            const [hoursWorked] = await db.execute(
+                `SELECT SUM(hours_worked) AS total FROM tb_attendance WHERE employee_id = ? AND is_deleted = 0 AND workday LIKE ?`,
+                [employee_id, monthPattern]
+            );
+            data.hours_worked = hoursWorked[0]?.total || 0;
+
+            // Fetch days worked
+            const [daysWorked] = await db.execute(
+                `SELECT SUM(day_worked) AS total FROM tb_attendance WHERE employee_id = ? AND is_deleted = 0 AND workday LIKE ?`,
+                [employee_id, monthPattern]
+            );
+            data.day_worked = daysWorked[0]?.total || 0;
+
+            // Fetch employee details
+            const [employeeDetails] = await db.execute(
+                `SELECT * FROM tb_employee WHERE id = ? AND is_deleted = 0`,
+                [employee_id]
+            );
+
+            if (employeeDetails.length === 0) {
+                return res.status(404).send({
+                    success: false,
+                    message: `Employee with ID ${employee_id} not found.`,
+                });
+            }
+
+            const emp = employeeDetails[0];
+            data.employee_name = `${emp.f_name} ${emp.l_name}`;
+            data.worker_id = emp.worker_id;
+            data.bankname = emp.bankname;
+
+            // Fetch vacation details
+            const [annual] = await db.execute(
+                `SELECT SUM(days) AS total FROM tb_vacation WHERE employee_id = ? AND is_deleted = 0 AND start_date LIKE ? AND leaves_id = ?`,
+                [employee_id, `${year}%`, 1]
+            );
+            data.annual = annual[0]?.total || 0;
+
+            const [sick] = await db.execute(
+                `SELECT SUM(days) AS total FROM tb_vacation WHERE employee_id = ? AND is_deleted = 0 AND start_date LIKE ? AND leaves_id = ?`,
+                [employee_id, `${year}%`, 2]
+            );
+            data.sick = sick[0]?.total || 0;
+
+            // Fetch contract details (basic salary, overtime rate, SSO, etc.)
+            const [salary] = await db.execute(
+                `SELECT * FROM tb_contract WHERE employee_id = ? AND is_deleted = 0 ORDER BY id DESC LIMIT 1`,
+                [employee_id]
+            );
+
+            if (salary.length > 0) {
+                const sal = salary[0];
+                if (sal.worker_id == '1') {
+                    const [countDayWork] = await db.execute(
+                        `SELECT COUNT(id) AS total FROM tb_attendance WHERE employee_id = ? AND is_deleted=0 AND workday LIKE ?`,
+                        [employee_id, monthPattern]
+                    );
+
+                    data.sso = parseFloat(sal.sso * countDayWork[0]?.total).toFixed(2);
+                    data.basic_salary = parseFloat(sal.basic_salary * countDayWork[0]?.total).toFixed(2);
+                } else {
+                    data.sso = sal.sso;
+                    data.basic_salary = sal.basic_salary;
+                }
+            } else {
+                data.sso = 0;
+                data.basic_salary = 0;
+            }
+
+            const [otRate] = await db.execute(
+                `SELECT SUM(ot_rate) AS total FROM tb_contract WHERE employee_id = ? AND is_deleted=0`,
+                [employee_id]
+            );
+            data.ot_rate = otRate[0]?.total || 0;
+
+            const [sickLeave] = await db.execute(
+                `SELECT SUM(sick_leave) AS total FROM tb_contract WHERE employee_id = ? AND is_deleted=0`,
+                [employee_id]
+            );
+            data.sick_leave = sickLeave[0]?.total || 0;
+
+            const [housing] = await db.execute(
+                `SELECT SUM(housing) AS total FROM tb_contract WHERE employee_id = ? AND is_deleted=0`,
+                [employee_id]
+            );
+            data.housing = housing[0]?.total || 0;
+
+            const [personalLeave] = await db.execute(
+                `SELECT SUM(personal_leave) AS total FROM tb_contract WHERE employee_id = ? AND is_deleted=0`,
+                [employee_id]
+            );
+            data.personal_leave = personalLeave[0]?.total || 0;
+
+            const [bonus] = await db.execute(
+                `SELECT SUM(amount) AS total FROM tb_bonusanddeduction WHERE employee_id = ? AND transactions_id = 1 AND is_deleted=0`,
+                [employee_id]
+            );
+            data.bonus = bonus[0]?.total || 0;
+
+            const [deduction] = await db.execute(
+                `SELECT SUM(amount) AS total FROM tb_bonusanddeduction WHERE employee_id = ? AND transactions_id = 2 AND is_deleted=0`,
+                [employee_id]
+            );
+            data.deduction = deduction[0]?.total || 0;
+
+            const [bonusDeduction] = await db.execute(
+                `SELECT reason FROM tb_bonusanddeduction WHERE employee_id = ? AND is_deleted=0 LIMIT 1`,
+                [employee_id]
+            );
+            data.reason = bonusDeduction.length > 0 ? bonusDeduction[0].reason : '';
+
+            const [borrow] = await db.execute(
+                `SELECT SUM(amount) AS total FROM tb_advancepayments WHERE employee_id = ? AND transaction_id = 1 AND is_deleted=0`,
+                [employee_id]
+            );
+
+            const paybackquery = `
+            SELECT SUM(amount) AS total 
+            FROM tb_advancepayments 
+            WHERE employee_id = ? 
+            AND transaction_id = 2 
+            AND is_deleted = 0 
+            AND DATE_FORMAT(transaction_date, "%Y-%m") = ?
+        `;
+
+            const [payback] = await db.execute(paybackquery, [employee_id, `${year}-${selectedMonth}`]);
+
+            const [paybackMonth] = await db.execute(
+                `SELECT SUM(amount) AS total FROM tb_advancepayments WHERE employee_id = ? AND transaction_date LIKE ? AND transaction_id = 2 AND is_deleted=0`,
+                [employee_id, monthPattern]
+            );
+
+            data.advance_borrow = (borrow[0]?.total || 0) - (payback[0]?.total || 0);
+            data.balance_borrow = borrow[0]?.total - data.advance_borrow;
+            data.borrow = data.balance_borrow || 0;
+            data.payback_month = paybackMonth[0]?.total || 0;
+            data.payback = payback[0]?.total || 0;
+            data.total_ot = data.ot_rate * data.overtime || 0;
+            data.sick_balance = parseInt(data.sick_leave || 0) - parseInt(data.sick || 0);
+            data.annual_balance = parseInt(data.personal_leave || 0) - parseInt(data.annual || 0);
+
+            // Calculate total deductions and net income
+            const total_deduct = parseFloat(data.sso) + parseFloat(data.payback) + parseFloat(data.deduction);
+            data.total_deduct = total_deduct.toFixed(2);
+
+            const total_earning = parseFloat(data.basic_salary) + parseFloat(data.total_ot) + parseFloat(data.housing) + parseFloat(data.bonus);
+            data.total_earning = total_earning.toFixed(2);
+
+            const net_income = total_earning - total_deduct;
+            data.net_income = net_income.toFixed(2);
+
+            // Insert salary record for the employee
+            const [existingSalary] = await db.execute(
+                `SELECT id FROM tb_salary WHERE employee_id = ? AND month = ?`,
+                [employee_id, month]
+            );
+
+            if (existingSalary.length > 0) {
+                return res.status(400).send({
+                    success: false,
+                    message: `Salary record already exists for employee ${employee_id} in the given month.`,
+                });
+            }
+
+            // Insert salary record for the employee
+            await db.execute(
+                `INSERT INTO tb_salary 
+                (month, employee_id, employee_name, paydetails_id, bankname, basic_salary, overtime, ot_rate, total_ot, housing, bonus,
+                total_earning, sso, deduction, payback, total_deduct, net_income, reason, sick, sick_balance, annual, annual_balance, borrow, advance_borrow)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    month, employee_id, data.employee_name, null, data.bankname, data.basic_salary, data.overtime, data.ot_rate, data.total_ot,
+                    data.housing, data.bonus, data.total_earning, data.sso, data.deduction, data.payback, data.total_deduct, data.net_income,
+                    data.reason, data.sick, data.sick_balance, data.annual, data.annual_balance, data.borrow, data.advance_borrow
+                ]
+            );
+
+            allEmployeeData.push(data);
+        }
+
+        return res.status(200).send({
+            success: true,
+            message: "Salary processing completed for all employees.",
+            data: allEmployeeData,
+        });
+    } catch (error) {
+        return res.status(500).send({
+            success: false,
+            message: "An error occurred while processing salaries: " + error.message,
+        });
+    }
+};
+ */
 
 const UpdateSalary = async (req, res) => {
     try {
@@ -210,7 +614,7 @@ const UpdateSalary = async (req, res) => {
 const EmpAttendanceByMonth = async (req, res) => {
     try {
         const { month, employee_id } = req.body;
-console.log(req.body);
+        console.log(req.body);
 
         const [rows, fields] = await db.execute(
             `SELECT 
@@ -352,28 +756,28 @@ const GetEmployeeWorking = async (req, res) => {
 
         // Fetch overtime
         const [overtime] = await db.execute(
-            `SELECT SUM(overtime) AS total FROM tb_attendance WHERE employee_id = ? AND workday LIKE ?`,
+            `SELECT SUM(overtime) AS total FROM tb_attendance WHERE employee_id = ? AND is_deleted=0 AND workday LIKE ?`,
             [employee, monthPattern]
         );
         data.overtime = overtime[0]?.total || 0;
 
         // Fetch hours worked
         const [hoursWorked] = await db.execute(
-            `SELECT SUM(hours_worked) AS total FROM tb_attendance WHERE employee_id = ? AND workday LIKE ?`,
+            `SELECT SUM(hours_worked) AS total FROM tb_attendance WHERE employee_id = ? AND is_deleted=0 AND workday LIKE ?`,
             [employee, monthPattern]
         );
         data.hours_worked = hoursWorked[0]?.total || 0;
 
         // Fetch days worked
         const [daysWorked] = await db.execute(
-            `SELECT SUM(day_worked) AS total FROM tb_attendance WHERE employee_id = ? AND workday LIKE ?`,
+            `SELECT SUM(day_worked) AS total FROM tb_attendance WHERE employee_id = ? AND is_deleted=0 AND workday LIKE ?`,
             [employee, monthPattern]
         );
         data.day_worked = daysWorked[0]?.total || 0;
 
         // Fetch employee details
         const [employeeDetails] = await db.execute(
-            `SELECT * FROM tb_employee WHERE id = ?`,
+            `SELECT * FROM tb_employee WHERE id = ? AND is_deleted=0`,
             [employee]
         );
 
@@ -392,7 +796,7 @@ const GetEmployeeWorking = async (req, res) => {
 
         // Fetch vacation details
         const [annual] = await db.execute(
-            `SELECT SUM(days) AS total FROM tb_vacation WHERE employee_id = ? AND start_date LIKE ? AND leaves_id = ?`,
+            `SELECT SUM(days) AS total FROM tb_vacation WHERE employee_id = ? AND is_deleted=0 AND  start_date LIKE ? AND leaves_id = ?`,
             [employee, `${year}%`, 1]
         );
         console.log(annual);
@@ -400,14 +804,14 @@ const GetEmployeeWorking = async (req, res) => {
         data.annual = annual[0]?.total || 0;
 
         const [sick] = await db.execute(
-            `SELECT SUM(days) AS total FROM tb_vacation WHERE employee_id = ? AND start_date LIKE ? AND leaves_id = ?`,
+            `SELECT SUM(days) AS total FROM tb_vacation WHERE employee_id = ? AND is_deleted=0 AND start_date LIKE ? AND leaves_id = ?`,
             [employee, `${year}%`, 2]
         );
         data.sick = sick[0]?.total || 0;
 
         // Fetch contract details
         const [salary] = await db.execute(
-            `SELECT * FROM tb_contract WHERE employee_id = ? ORDER BY id DESC LIMIT 1`,
+            `SELECT * FROM tb_contract WHERE employee_id = ? AND is_deleted=0 ORDER BY id DESC LIMIT 1`,
             [employee]
         );
 
@@ -416,7 +820,7 @@ const GetEmployeeWorking = async (req, res) => {
 
             if (sal.worker_id == '1') {
                 const [countDayWork] = await db.execute(
-                    `SELECT COUNT(id) AS total FROM tb_attendance WHERE employee_id = ? AND workday LIKE ?`,
+                    `SELECT COUNT(id) AS total FROM tb_attendance WHERE employee_id = ? AND is_deleted=0 AND workday LIKE ?`,
                     [employee, monthPattern]
                 );
 
@@ -433,31 +837,31 @@ const GetEmployeeWorking = async (req, res) => {
 
         // Fetch additional details
         const [otRate] = await db.execute(
-            `SELECT SUM(ot_rate) AS total FROM tb_contract WHERE employee_id = ?`,
+            `SELECT SUM(ot_rate) AS total FROM tb_contract WHERE employee_id = ? AND is_deleted=0`,
             [employee]
         );
         data.ot_rate = otRate[0]?.total || 0;
 
         const [sickLeave] = await db.execute(
-            `SELECT SUM(sick_leave) AS total FROM tb_contract WHERE employee_id = ?`,
+            `SELECT SUM(sick_leave) AS total FROM tb_contract WHERE employee_id = ? AND is_deleted=0`,
             [employee]
         );
         data.sick_leave = sickLeave[0]?.total || 0;
 
         const [housing] = await db.execute(
-            `SELECT SUM(housing) AS total FROM tb_contract WHERE employee_id = ?`,
+            `SELECT SUM(housing) AS total FROM tb_contract WHERE employee_id = ? AND is_deleted=0`,
             [employee]
         );
         data.housing = housing[0]?.total || 0;
 
         const [personalLeave] = await db.execute(
-            `SELECT SUM(personal_leave) AS total FROM tb_contract WHERE employee_id = ?`,
+            `SELECT SUM(personal_leave) AS total FROM tb_contract WHERE employee_id = ? AND is_deleted=0`,
             [employee]
         );
         data.personal_leave = personalLeave[0]?.total || 0;
 
         const [bonus] = await db.execute(
-            `SELECT SUM(amount) AS total FROM tb_bonusanddeduction WHERE employee_id = ? AND transactions_id = 1`,
+            `SELECT SUM(amount) AS total FROM tb_bonusanddeduction WHERE employee_id = ? AND transactions_id = 1 AND is_deleted=0`,
             [employee]
         );
 
@@ -465,29 +869,35 @@ const GetEmployeeWorking = async (req, res) => {
         data.bonus = bonus[0]?.total || 0;
 
         const [deduction] = await db.execute(
-            `SELECT SUM(amount) AS total FROM tb_bonusanddeduction WHERE employee_id = ? AND transactions_id = 2`,
+            `SELECT SUM(amount) AS total FROM tb_bonusanddeduction WHERE employee_id = ? AND transactions_id = 2 AND is_deleted=0`,
             [employee]
         );
         data.deduction = deduction[0]?.total || 0;
 
         const [bonusDeduction] = await db.execute(
-            `SELECT reason FROM tb_bonusanddeduction WHERE employee_id = ? LIMIT 1`,
+            `SELECT reason FROM tb_bonusanddeduction WHERE employee_id = ? AND is_deleted=0 LIMIT 1`,
             [employee]
         );
         data.reason = bonusDeduction.length > 0 ? bonusDeduction[0].reason : '';
 
         const [borrow] = await db.execute(
-            `SELECT SUM(amount) AS total FROM tb_advancepayments WHERE employee_id = ? AND transaction_id = 1`,
+            `SELECT SUM(amount) AS total FROM tb_advancepayments WHERE employee_id = ? AND transaction_id = 1 AND is_deleted=0`,
             [employee]
         );
 
-        const [payback] = await db.execute(
-            `SELECT SUM(amount) AS total FROM tb_advancepayments WHERE employee_id = ? AND transaction_id = 2`,
-            [employee]
-        );
+        const paybackquery = `
+        SELECT SUM(amount) AS total 
+        FROM tb_advancepayments 
+        WHERE employee_id = ? 
+        AND transaction_id = 2 
+        AND is_deleted = 0 
+        AND DATE_FORMAT(transaction_date, "%Y-%m") = ?
+    `;
+
+        const [payback] = await db.execute(paybackquery, [employee, `${year}-${selectedMonth}`]);
 
         const [paybackMonth] = await db.execute(
-            `SELECT SUM(amount) AS total FROM tb_advancepayments WHERE employee_id = ? AND transaction_date LIKE ? AND transaction_id = 2`,
+            `SELECT SUM(amount) AS total FROM tb_advancepayments WHERE employee_id = ? AND transaction_date LIKE ? AND transaction_id = 2 AND is_deleted=0`,
             [employee, monthPattern]
         );
         console.log(data.sick_leave);
@@ -559,4 +969,4 @@ const UploadPdf = async (req, res) => {
     }
 };
 
-module.exports = { GetAllSalary, AddSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking, UploadPdf }
+module.exports = { GetAllSalary, AddSalary, GetMultipleSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking, UploadPdf, AddAllEmployeeSalary }

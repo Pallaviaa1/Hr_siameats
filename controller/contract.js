@@ -11,6 +11,8 @@ const GetAllcontract = async (req, res) => {
             c.basic_salary as basic_salary,
             c.ot_rate as ot_rate,
             c.sso as sso,
+            c.sso_rate as ssoRate,
+            c.WHT_rate as WHTRate,
             c.sick_leave as sick_leave,
             c.personal_leave as personal_leave,
             c.housing as housing,
@@ -39,7 +41,7 @@ const GetAllcontract = async (req, res) => {
     }
 }
 
-const Addcontract = async (req, res) => {
+/* const Addcontract = async (req, res) => {
     try {
         const { employee_id, worker_id, contract_date, basic_salary, ot_rate, sso, housing, sick_leave, personal_leave } = req.body;
 
@@ -59,9 +61,31 @@ const Addcontract = async (req, res) => {
             message: error.message,
         })
     }
+} */
+
+const Addcontract = async (req, res) => {
+    try {
+        const { employee_id, worker_id, contract_date, basic_salary, ot_rate, sso, ssoRate, WHTRate, housing, sick_leave, personal_leave } = req.body;
+
+        const [rows, fields] = await db.execute(
+            `INSERT into tb_contract (employee_id, worker_id, contract_date, basic_salary, ot_rate, sso, sso_rate, WHT_rate, housing, sick_leave, personal_leave ) values (?,?,?,?,?,?,?,?,?,?,?)`,
+            [employee_id, worker_id, contract_date, basic_salary, ot_rate, sso, ssoRate, WHTRate, housing, sick_leave, personal_leave])
+
+        return res.status(200).send({
+            success: true,
+            message: "contract Added Successfully",
+            data: rows
+        })
+
+    } catch (error) {
+        return res.status(500).send({
+            success: false,
+            message: error.message,
+        })
+    }
 }
 
-const Updatecontract = async (req, res) => {
+/* const Updatecontract = async (req, res) => {
     try {
         const {
             contract_id, employee_id, worker_id, contract_date, basic_salary, ot_rate, sso, housing, sick_leave, personal_leave
@@ -81,6 +105,48 @@ const Updatecontract = async (req, res) => {
                 WHERE id = ?`,
                 [
                     employee_id, worker_id, contract_date, basic_salary, ot_rate, sso, housing, sick_leave, personal_leave, contract_id
+                ]
+            );
+
+            return res.status(200).send({
+                success: true,
+                message: "contract updated successfully."
+            });
+        } else {
+            // Record not found
+            return res.status(400).send({
+                success: false,
+                message: "contract record not found."
+            });
+        }
+    } catch (error) {
+        return res.status(500).send({
+            success: false,
+            message: error.message,
+        });
+    }
+}; */
+
+const Updatecontract = async (req, res) => {
+    try {
+        const {
+            contract_id, employee_id, worker_id, contract_date, basic_salary, ot_rate, sso, ssoRate, WHTRate, housing, sick_leave, personal_leave
+        } = req.body;
+
+        // Check if the record exists
+        const [existingRecord] = await db.execute(
+            `SELECT id FROM tb_contract WHERE id =?`,
+            [contract_id]
+        );
+
+        if (existingRecord.length > 0) {
+            // Update the existing record
+            await db.execute(
+                `UPDATE tb_contract SET 
+                   employee_id=?, worker_id=?, contract_date=?, basic_salary=?, ot_rate=?, sso=?, sso_rate=?, WHT_rate=?, housing=?, sick_leave=?, personal_leave=?
+                WHERE id = ?`,
+                [
+                    employee_id, worker_id, contract_date, basic_salary, ot_rate, sso, ssoRate, WHTRate, housing, sick_leave, personal_leave, contract_id
                 ]
             );
 
@@ -185,5 +251,84 @@ const Deletecontract = async (req, res) => {
     }
 };
 
+const AddSSORate = async (req, res) => {
+    try {
+        const { ssoRate } = req.body;
+        if (!ssoRate) {
+            return res.status(400).send({
+                success: false,
+                message: "Please provide SSO Rate"
+            })
+        }
+        const [rows, fields] = await db.execute(
+            `INSERT into tb_sso_rate (rate) values (?)`,
+            [ssoRate])
 
-module.exports = { GetAllcontract, Addcontract, Updatecontract, GetcontractById, Deletecontract }
+        return res.status(200).send({
+            success: true,
+            message: "SSO Rate Updated Successfully",
+            data: rows
+        })
+    } catch (error) {
+        return res.status(500).send({
+            success: false,
+            message: error.message
+        });
+    }
+}
+
+const AddWHTRate = async (req, res) => {
+    try {
+        const { WHTRate } = req.body;
+        console.log(req.body);
+
+        if (!WHTRate) {
+            return res.status(400).send({
+                success: false,
+                message: "Please provide WHT Rate"
+            })
+        }
+        const [rows, fields] = await db.execute(
+            `INSERT into tb_WHT_rate (rate) values (?)`,
+            [WHTRate])
+
+        return res.status(200).send({
+            success: true,
+            message: "WHT Rate Updated Successfully",
+            data: rows
+        })
+    } catch (error) {
+        return res.status(500).send({
+            success: false,
+            message: error.message
+        });
+    }
+}
+
+const getLatestSSORate = async (req, res) => {
+    try {
+        // Correct query to fetch the latest SSO rate
+        const [existingSSO] = await db.execute(
+            `SELECT * FROM tb_sso_rate ORDER BY id DESC LIMIT 1`
+        );
+
+        const [existingWHT] = await db.execute(
+            `SELECT * FROM tb_WHT_rate ORDER BY id DESC LIMIT 1`
+        );
+
+        return res.status(200).send({
+            success: true,
+            message: "SSO Rate fetched successfully",
+            data: existingSSO?.[0] || {},
+            existingWHT: existingWHT?.[0] || {}
+        });
+    } catch (error) {
+        return res.status(500).send({
+            success: false,
+            message: error.message
+        });
+    }
+}
+
+
+module.exports = { GetAllcontract, Addcontract, Updatecontract, GetcontractById, Deletecontract, AddSSORate, AddWHTRate, getLatestSSORate }

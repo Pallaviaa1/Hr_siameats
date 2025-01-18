@@ -5,13 +5,13 @@ const { rollback } = require("../db/dbConnection");
 const router = Router()
 
 const { adminLogin, getUsers, CreateUsers, UpdateUsers, UserReset, DeleteUser, UserStatus, DeleteAllUsers } = require("../controller/admin/adminLogin")
-const { GetAllAttendance, CreateAttendance, CreateAllAttendance, UpdateAttendance, DeleteAttendance } = require("../controller/attendance")
-const { GetAllEmployee, CreateEmployee, UpdateEmployee, DeleteEmployee, EmployeeStatus } = require("../controller/employee")
-const { GetAllSalary, AddSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking, UploadPdf } = require("../controller/salary")
+const { GetAllAttendance, CreateAttendance, CreateAllAttendance, UpdateAttendance, DeleteAttendance, updateWeekDay } = require("../controller/attendance")
+const { GetAllEmployee, CreateEmployee, UpdateEmployee, DeleteEmployee, EmployeeStatus, GetContractByEmployeeId, ActiveEmployee } = require("../controller/employee")
+const { GetAllSalary, AddSalary, GetMultipleSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking, UploadPdf, AddAllEmployeeSalary } = require("../controller/salary")
 const { GetAllVacations, AddVacation, UpdateVacation, GetVacationById, DeleteVacation } = require("../controller/vacation")
 const { GetAllAdvancePayments, AddAdvancePayment, UpdateAdvancePayment, GetAdvancePaymentById, DeleteAdvancePayment } = require("../controller/advancePayments")
 const { GetAllbonusAndDeduction, AddbonusDeduction, UpdatebonusDeduction, GetbonusDeductionById, DeletebonusDeduction } = require("../controller/bonusDeduction")
-const { GetAllcontract, Addcontract, Updatecontract, GetcontractById, Deletecontract } = require("../controller/contract")
+const { GetAllcontract, Addcontract, Updatecontract, GetcontractById, Deletecontract, AddSSORate, AddWHTRate, getLatestSSORate } = require("../controller/contract")
 const { GetProvinces, GetDistrict, GetSubDistrict, GetEmployee, GetPayDetailsDrop, GetLeaves, GetTransactionType, GetBonusTransactionsType, GetWorkerType } = require("../controller/AllDropDown")
 const { GetMenu, AddMenu, UpdateMenu, DeleteMenu, ChangeMenuStatus } = require('../controller/menu')
 
@@ -71,6 +71,7 @@ router.post("/CreateAttendance", CreateAttendance)
 router.post("/CreateAllAttendance", CreateAllAttendance)
 router.post("/UpdateAttendance", UpdateAttendance)
 router.post("/DeleteAttendance", DeleteAttendance)
+router.post("/updateWeekDay", updateWeekDay)
 
 // employee.js
 router.get("/GetAllEmployee", GetAllEmployee)
@@ -78,17 +79,20 @@ router.post("/CreateEmployee", uploads.single('profile'), CreateEmployee)
 router.post("/UpdateEmployee", uploads.single('profile'), UpdateEmployee)
 router.post("/DeleteEmployee", DeleteEmployee)
 router.post("/EmployeeStatus", EmployeeStatus)
+router.post("/GetContractByEmplId", GetContractByEmployeeId)
+router.get("/ActiveEmployee", ActiveEmployee)
 
 // salary,js
 router.get("/GetAllSalary", GetAllSalary)
 router.post("/AddSalary", AddSalary)
+router.post("/GetMultipleSalary", GetMultipleSalary)
 router.post("/UpdateSalary", UpdateSalary)
 router.post("/EmpAttendanceByMonth", EmpAttendanceByMonth)
 router.post("/GetSalaryById", GetSalaryById)
 router.post("/DeleteSalary", DeleteSalary)
 router.post("/GetEmployeeWorking", GetEmployeeWorking)
 router.post("/UploadPdf", uploads.single('document'), UploadPdf)
-
+router.post("/AddAllEmployeeSalary", AddAllEmployeeSalary)
 
 //vacation.js
 router.get("/GetAllVacations", GetAllVacations)
@@ -117,6 +121,9 @@ router.post("/Addcontract", Addcontract)
 router.post("/Updatecontract", Updatecontract)
 router.post("/GetcontractById", GetcontractById)
 router.post("/Deletecontract", Deletecontract)
+router.post("/AddSSORate", AddSSORate)
+router.post("/AddWHTRate", AddWHTRate)
+router.get("/getLatestSSORate", getLatestSSORate)
 
 //AllDropDown.js
 router.get("/GetProvinces", GetProvinces)
