@@ -424,6 +424,32 @@ const CreateAllAttendance = async (req, res) => {
     }
 };
 
+const getNewAttendance = async (req, res) => {
+    try {
+        const { working_day } = req.query;
+        const [attendanceList] = await db.execute(
+            `SELECT a.*, 
+       e.f_name AS f_name, 
+       e.l_name AS l_name,
+       e.n_name AS n_name 
+       FROM tb_attendance AS a
+       LEFT JOIN tb_employee AS e ON e.id = a.employee_id
+       WHERE workday = ?`,
+            [working_day]
+        );
+
+        return res.status(200).send({
+            success: true,
+            message: "Attendance processed successfully for all employees.",
+            data: attendanceList
+        });
+    } catch (error) {
+        return res.status(500).send({
+            success: false,
+            message: error.message
+        });
+    }
+}
 
 const UpdateAttendance = async (req, res) => {
     try {
@@ -570,4 +596,4 @@ const updateWeekDay = async (req, res) => {
     }
 }
 
-module.exports = { GetAllAttendance, CreateAttendance, CreateAllAttendance, UpdateAttendance, DeleteAttendance, updateWeekDay }
+module.exports = { GetAllAttendance, CreateAttendance, CreateAllAttendance, getNewAttendance, UpdateAttendance, DeleteAttendance, updateWeekDay }

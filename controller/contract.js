@@ -305,6 +305,57 @@ const AddWHTRate = async (req, res) => {
     }
 }
 
+const AddtDailyRate = async (req, res) => {
+    try {
+        const { DailyRate } = req.body;
+        if (!DailyRate) {
+            return res.status(400).send({
+                success: false,
+                message: "Please provide Daily Rate"
+            })
+        }
+        const [rows, fields] = await db.execute(
+            `INSERT into tb_Daily_Rate (rate) values (?)`,
+            [DailyRate])
+
+        return res.status(200).send({
+            success: true,
+            message: "Daily Rate Updated Successfully",
+            data: rows
+        })
+    } catch (error) {
+        return res.status(500).send({
+            success: false,
+            message: error.message
+        });
+    }
+}
+
+const AddOverTime = async (req, res) => {
+    try {
+        const { OverTimeRate } = req.body;
+        if (!OverTimeRate) {
+            return res.status(400).send({
+                success: false,
+                message: "Please provide OverTime Rate"
+            })
+        }
+        const [rows, fields] = await db.execute(
+            `INSERT into tbl_over_time (rate) values (?)`,
+            [OverTimeRate])
+
+        return res.status(200).send({
+            success: true,
+            message: "OverTime Rate Updated Successfully",
+            data: rows
+        })
+    } catch (error) {
+        return res.status(500).send({
+            success: false,
+            message: error.message
+        });
+    }
+}
 const getLatestSSORate = async (req, res) => {
     try {
         // Correct query to fetch the latest SSO rate
@@ -316,11 +367,21 @@ const getLatestSSORate = async (req, res) => {
             `SELECT * FROM tb_WHT_rate ORDER BY id DESC LIMIT 1`
         );
 
+        const [existingOverTime] = await db.execute(
+            `SELECT * FROM tbl_over_time ORDER BY id DESC LIMIT 1`
+        );
+
+        const [existingDailyRate] = await db.execute(
+            `SELECT * FROM tb_Daily_Rate ORDER BY id DESC LIMIT 1`
+        );
+
         return res.status(200).send({
             success: true,
             message: "SSO Rate fetched successfully",
             data: existingSSO?.[0] || {},
-            existingWHT: existingWHT?.[0] || {}
+            existingWHT: existingWHT?.[0] || {},
+            existingOverTime: existingOverTime?.[0] || {},
+            existingDailyRate: existingDailyRate?.[0] || {}
         });
     } catch (error) {
         return res.status(500).send({
@@ -331,4 +392,4 @@ const getLatestSSORate = async (req, res) => {
 }
 
 
-module.exports = { GetAllcontract, Addcontract, Updatecontract, GetcontractById, Deletecontract, AddSSORate, AddWHTRate, getLatestSSORate }
+module.exports = { GetAllcontract, Addcontract, Updatecontract, GetcontractById, Deletecontract, AddSSORate, AddWHTRate, AddtDailyRate, AddOverTime, getLatestSSORate }
