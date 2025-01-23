@@ -2,7 +2,7 @@ const bcrypt = require("bcryptjs")
 const { db } = require("../db/db2")
 const sendMail = require('../helpers/sendMail');
 
-const GetAllVacations = async (req, res) => {
+/* const GetAllVacations = async (req, res) => {
     try {
         const [rows, fields] = await db.execute(
             `SELECT v.id as vacation_id,
@@ -35,6 +35,58 @@ const GetAllVacations = async (req, res) => {
         })
     }
 }
+ */
+
+const GetAllVacations = async (req, res) => {
+    try {
+        const [rows, fields] = await db.execute(
+            `SELECT v.id as vacation_id,
+            v.employee_id as employee_id,
+            v.leaves_id as leaves_id,
+            v.start_date as start_date,
+            v.end_date as end_date,
+            v.days as days,
+            v.sort as sort,
+            v.is_deleted as is_deleted,
+            v.created_at as created_at,
+            e.f_name as f_name,
+            e.l_name as l_name,
+            e.n_name as n_name,
+            l.leaves_type as leaves_type
+            FROM tb_vacation as v
+            LEFT JOIN tb_employee as e ON e.id = v.employee_id
+            LEFT JOIN tb_leaves as l ON l.leaves_id = v.leaves_id
+            WHERE v.is_deleted = '${0}'
+            ORDER BY v.created_at DESC`
+        );
+
+        // Adjust time zones for start_date and end_date
+        const adjustedRows = rows.map(row => {
+            row.start_date1 = row.start_date
+                ? new Date(row.start_date).toLocaleDateString("en-GB", {
+                    timeZone: "Asia/Bangkok", // Adjust this to your desired time zone
+                })
+                : null;
+            row.end_date2 = row.end_date
+                ? new Date(row.end_date).toLocaleDateString("en-GB", {
+                    timeZone: "Asia/Bangkok",
+                })
+                : null;
+            return row;
+        });
+
+        return res.status(200).send({
+            success: true,
+            data: adjustedRows,
+        });
+    } catch (err) {
+        return res.status(500).send({
+            success: false,
+            message: err.message,
+        });
+    }
+};
+
 
 const AddVacation = async (req, res) => {
     try {

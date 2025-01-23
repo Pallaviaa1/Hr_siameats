@@ -307,7 +307,9 @@ const AddWHTRate = async (req, res) => {
 
 const AddtDailyRate = async (req, res) => {
     try {
-        const { DailyRate } = req.body;
+        const { DailyRate, employees } = req.body;
+        console.log(req.body);
+
         if (!DailyRate) {
             return res.status(400).send({
                 success: false,
@@ -318,6 +320,23 @@ const AddtDailyRate = async (req, res) => {
             `INSERT into tb_Daily_Rate (rate) values (?)`,
             [DailyRate])
 
+        if (!Array.isArray(employees) || employees.length === 0) {
+            return res.status(400).send({
+                success: false,
+                message: "Employees must be provided as a non-empty array."
+            });
+        }
+
+        const results = [];
+        for (const id of employees) {
+            console.log(id);
+            
+            const [updaterows] = await db.execute(
+                `UPDATE tb_contract SET basic_salary = ? WHERE employee_id = ?`,
+                [DailyRate, id]
+            );
+            results.push({ employee_id: id, affectedRows: updaterows.affectedRows });
+        }
         return res.status(200).send({
             success: true,
             message: "Daily Rate Updated Successfully",
@@ -333,7 +352,9 @@ const AddtDailyRate = async (req, res) => {
 
 const AddOverTime = async (req, res) => {
     try {
-        const { OverTimeRate } = req.body;
+        const { OverTimeRate, employees } = req.body;
+        console.log(req.body);
+
         if (!OverTimeRate) {
             return res.status(400).send({
                 success: false,
@@ -343,7 +364,23 @@ const AddOverTime = async (req, res) => {
         const [rows, fields] = await db.execute(
             `INSERT into tbl_over_time (rate) values (?)`,
             [OverTimeRate])
+        if (!Array.isArray(employees) || employees.length === 0) {
+            return res.status(400).send({
+                success: false,
+                message: "Employees must be provided as a non-empty array."
+            });
+        }
 
+        const results = [];
+        for (const id of employees) {
+            console.log(id);
+            
+            const [updaterows] = await db.execute(
+                `UPDATE tb_contract SET ot_rate = ? WHERE employee_id = ?`,
+                [OverTimeRate, id]
+            );
+            results.push({ employee_id: id, affectedRows: updaterows.affectedRows });
+        }
         return res.status(200).send({
             success: true,
             message: "OverTime Rate Updated Successfully",

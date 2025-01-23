@@ -312,10 +312,11 @@ const CreateAllAttendance = async (req, res) => {
             day_worked,
             overtime
         } = req.body;
+        // console.log();
 
-        console.log(req.body);
+        const formattedWorkingDay = new Date(working_day).toISOString().split('T')[0]; // Format date to YYYY-MM-DD
 
-        // Fetch all employees with status 'on'
+        // Fetch all employees
         const [employees] = await db.execute(
             `SELECT id FROM tb_employee WHERE status = 'on' AND is_deleted = '0'`
         );
@@ -330,26 +331,21 @@ const CreateAllAttendance = async (req, res) => {
         for (const employee of employees) {
             const employee_id = employee.id;
 
-            // Check if there is any vacation for this employee on the working day
+            // Check for vacation
             const [vacation] = await db.execute(
                 `SELECT leaves_id FROM tb_vacation WHERE employee_id = ? AND ? BETWEEN start_date AND end_date`,
                 [employee_id, working_day]
             );
 
-            // Determine Unworked_Day based on vacation leave_id
-            let Unworked_Day = 0;
-            if (vacation.length > 0) {
-                Unworked_Day = vacation[0].leaves_id === 3 ? 3 : 0;
-            }
+            let Unworked_Day = vacation.length > 0 && vacation[0].leaves_id === 3 ? 3 : 0;
 
-            // Check if attendance already exists for the working day
+            // Check or insert attendance
             const [existingAttendance] = await db.execute(
-                `SELECT id FROM tb_attendance WHERE employee_id = ? AND workday = ? AND is_deleted=?`,
-                [employee_id, working_day, 0]
+                `SELECT id FROM tb_attendance WHERE employee_id = ? AND workday = ? AND is_deleted = 0`,
+                [employee_id, working_day]
             );
 
             if (existingAttendance.length > 0) {
-                // Update the existing attendance record
                 await db.execute(
                     `UPDATE tb_attendance SET 
                         morning_in = ?, 
@@ -360,7 +356,7 @@ const CreateAllAttendance = async (req, res) => {
                         hours_worked = ?, 
                         day_worked = ?, 
                         overtime = ?, 
-                        Unworked_Day = ?
+                        Unworked_Day = ? 
                     WHERE employee_id = ? AND workday = ?`,
                     [
                         Work_time_morning,
@@ -377,7 +373,6 @@ const CreateAllAttendance = async (req, res) => {
                     ]
                 );
             } else {
-                // Insert a new attendance record
                 await db.execute(
                     `INSERT INTO tb_attendance 
                         (employee_id, workday, morning_in, lunch_break_out, lunch_break_in, afternoon_out, overtime_break, hours_worked, day_worked, overtime, Unworked_Day)  
@@ -400,20 +395,19 @@ const CreateAllAttendance = async (req, res) => {
         }
 
         const [attendanceList] = await db.execute(
-            `SELECT a.*, 
-       e.f_name AS f_name, 
-       e.l_name AS l_name,
-       e.n_name AS n_name 
-       FROM tb_attendance AS a
-       LEFT JOIN tb_employee AS e ON e.id = a.employee_id
-       WHERE workday = ?`,
-            [working_day]
+            `SELECT a.*, a.id as attendence_id, e.f_name, e.l_name, e.n_name 
+             FROM tb_attendance AS a
+             LEFT JOIN tb_employee AS e ON e.id = a.employee_id
+             WHERE workday = ?`,
+            [formattedWorkingDay]
         );
 
         return res.status(200).send({
             success: true,
             message: "Attendance processed successfully for all employees.",
-            data: attendanceList
+            data: attendanceList,
+            working_day,
+            formattedWorkingDay
         });
 
     } catch (err) {
@@ -424,7 +418,8 @@ const CreateAllAttendance = async (req, res) => {
     }
 };
 
-const getNewAttendance = async (req, res) => {
+
+/* const getNewAttendance = async (req, res) => {
     try {
         const { working_day } = req.query;
         const [attendanceList] = await db.execute(
@@ -450,7 +445,7 @@ const getNewAttendance = async (req, res) => {
         });
     }
 }
-
+ */
 const UpdateAttendance = async (req, res) => {
     try {
         const {
@@ -596,4 +591,4 @@ const updateWeekDay = async (req, res) => {
     }
 }
 
-module.exports = { GetAllAttendance, CreateAttendance, CreateAllAttendance, getNewAttendance, UpdateAttendance, DeleteAttendance, updateWeekDay }
+module.exports = { GetAllAttendance, CreateAttendance, CreateAllAttendance, UpdateAttendance, DeleteAttendance, updateWeekDay }

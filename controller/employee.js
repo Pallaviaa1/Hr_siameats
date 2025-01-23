@@ -287,9 +287,19 @@ const ActiveEmployee = async (req, res) => {
         const [employees] = await db.execute(
             `SELECT * FROM tb_employee WHERE status = 'on' and is_deleted='0'`
         );
+        const [employeesWorking1] = await db.execute(
+            `SELECT tb_employee.*, tb_contract.worker_id 
+FROM tb_employee
+LEFT JOIN tb_contract ON tb_contract.employee_id = tb_employee.id
+WHERE tb_employee.status = 'on' 
+  AND tb_employee.is_deleted = 0 AND tb_contract.worker_id =1;
+;
+`
+        );
         return res.status(200).send({
             success: true,
-            data: employees
+            data: employees,
+            data1: employeesWorking1
         });
     } catch (error) {
         return res.status(500).send({
