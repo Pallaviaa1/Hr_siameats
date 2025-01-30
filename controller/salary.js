@@ -39,15 +39,30 @@ const GetAllSalary = async (req, res) => {
             s.sort as sort,
             s.is_deleted as is_deleted,
             s.created_at as created_at,
-            p.paydetails_type 
+            p.paydetails_type,
+            c.WHT_rate as WHT_rate
             FROM tb_salary as s
             INNER JOIN  tb_paydetails as p on p.paydetails_id=s.paydetails_id
+            INNER JOIN  tb_contract as c on c.employee_id=s.employee_id
             WHERE s.is_deleted='${0}'
             ORDER BY s.created_at DESC`,
         )
+        const [existingWHT] = await db.execute(
+            `SELECT * FROM tb_WHT_rate ORDER BY id DESC LIMIT 1`
+        );
+
+        rows.forEach((row) => {
+            if (row.WHT_rate === 1) {
+                row.WHT = (existingWHT[0].rate / 100) * row.basic_salary || 0; // Ensure basic_salary is handled safely
+            } else {
+                row.WHT = 0;
+            }
+        });
+
         return res.status(200).send({
             success: true,
-            data: rows
+            data: rows,
+            existingWHT
         })
     } catch (err) {
         return res.status(500).send({
@@ -56,6 +71,133 @@ const GetAllSalary = async (req, res) => {
         })
     }
 }
+
+const GetAllSalaryByMonth = async (req, res) => {
+    try {
+        const { month } = req.body; // Expecting 'month' in the format 'YYYY-MM'
+
+        // Validate the month parameter if provided
+        if (month && !/^\d{4}-\d{2}$/.test(month)) {
+            return res.status(400).send({
+                success: false,
+                message: "Invalid 'month' parameter. Please provide it in 'YYYY-MM' format."
+            });
+        }
+
+        // Base SQL query for fetching individual salary data
+        let sqlQuery = `
+            SELECT 
+                s.id as salary_id,
+                s.month as month,
+                s.employee_id as employee_id,
+                s.employee_name as employee_name,
+                s.paydetails_id as paydetails_id,
+                s.bankname as bankname,
+                s.basic_salary as basic_salary,
+                s.overtime as overtime,
+                s.total_ot as total_ot,
+                s.ot_rate as ot_rate,
+                s.housing as housing,
+                s.bonus as bonus,
+                s.total_earning as total_earning,
+                s.sso as sso,
+                s.days as days,
+                s.days_thb as days_thb,
+                s.deduction as deduction,
+                s.payback as payback,
+                s.total_deduct as total_deduct,
+                s.net_income as net_income,
+                s.sick as sick,
+                s.sick_balance as sick_balance,
+                s.sick_leave as sick_leave,
+                s.annual as annual,
+                s.annual_balance as annual_balance,
+                s.personal_leave as personal_leave,
+                s.borrow as borrow,
+                s.advance_borrow as advance_borrow,
+                s.reason as reason,
+                s.sort as sort,
+                s.is_deleted as is_deleted,
+                s.created_at as created_at,
+                p.paydetails_type,
+                c.WHT_rate as WHT_rate,
+                e.banknum,
+                e.bankname as employee_bankname
+            FROM tb_salary as s
+            INNER JOIN tb_paydetails as p ON p.paydetails_id = s.paydetails_id
+            INNER JOIN tb_contract as c ON c.employee_id = s.employee_id
+            INNER JOIN tb_employee as e ON e.id = s.employee_id
+            WHERE s.is_deleted = ?`;
+
+        // Add a condition for the month if it's provided
+        const queryParams = [0];
+        if (month) {
+            sqlQuery += ' AND s.month = ?';
+            queryParams.push(month);
+        }
+
+        sqlQuery += ' ORDER BY s.created_at DESC';
+
+        // Execute the query
+        const [rows] = await db.execute(sqlQuery, queryParams);
+
+        const [existingWHT] = await db.execute(
+            `SELECT * FROM tb_WHT_rate ORDER BY id DESC LIMIT 1`
+        );
+
+        // Calculate WHT for each row and store it
+        rows.forEach((row) => {
+            if (row.WHT_rate === 1) {
+                row.WHT = (existingWHT[0].rate / 100) * row.basic_salary || 0; // Calculate WHT if applicable
+            } else {
+                row.WHT = 0;
+            }
+        });
+
+        // Calculate total WHT manually in JavaScript
+        const totalWHT = rows.reduce((sum, row) => sum + (row.WHT || 0), 0);
+
+        // SQL query to sum all relevant columns
+        let sqlQuery1 = `
+            SELECT 
+                SUM(s.basic_salary) as total_basic_salary,
+                SUM(s.overtime) as total_overtime,
+                SUM(s.bonus) as total_bonus,
+                SUM(s.total_earning) as Alltotal_earning,
+                SUM(s.sso) as total_sso,
+                SUM(s.deduction) as ALltotal_deduction,
+                SUM(s.payback) as ALLtotal_payback,
+                SUM(s.total_deduct) as Alltotal_deduct,
+                SUM(s.net_income) as total_net_income
+            FROM tb_salary as s
+            WHERE s.is_deleted = ?`;
+
+        // Add a condition for the month if it's provided
+        const queryParams1 = [0];
+        if (month) {
+            sqlQuery1 += ' AND s.month = ?';
+            queryParams1.push(month);
+        }
+
+        // Execute the query to get totals
+        const [dataAll] = await db.execute(sqlQuery1, queryParams1);
+
+        return res.status(200).send({
+            success: true,
+            data: rows,
+            existingWHT,
+            dataAll: dataAll[0],
+            totalWHT  // Include the total WHT in the response
+        });
+    } catch (err) {
+        return res.status(500).send({
+            success: false,
+            message: err.message,
+        });
+    }
+};
+
+
 
 const GetMultipleSalary = async (req, res) => {
     try {
@@ -66,11 +208,14 @@ const GetMultipleSalary = async (req, res) => {
         if (!Array.isArray(employee_ids) || employee_ids.length === 0) {
             return res.status(400).send({
                 success: false,
-                message: "Employee IDs must be provided as a non-empty array."
+                message: "Employee IDs must be provided as a non-empty array.",
             });
         }
 
-        // Fetch salary details for all employee IDs
+        // Fetch WHT rate once
+        const [existingWHT] = await db.execute(`SELECT * FROM tb_WHT_rate ORDER BY id DESC LIMIT 1`);
+        const whtRate = existingWHT.length > 0 ? existingWHT[0].rate : 0;
+
         const ALLdata = [];
 
         for (const employee_id of employee_ids) {
@@ -110,17 +255,28 @@ const GetMultipleSalary = async (req, res) => {
                     s.sort AS sort,
                     s.is_deleted AS is_deleted,
                     s.created_at AS created_at,
-                    p.paydetails_type 
+                    p.paydetails_type,
+                    c.WHT_rate AS WHT_rate
                 FROM tb_salary AS s
-                INNER JOIN tb_paydetails AS p ON p.paydetails_id = s.paydetails_id
-                WHERE s.is_deleted = 0 AND s.employee_id = ? AND month=?
+                LEFT JOIN tb_paydetails AS p ON p.paydetails_id = s.paydetails_id
+                LEFT JOIN tb_contract AS c ON c.employee_id = s.employee_id
+                WHERE s.is_deleted = 0 AND s.employee_id = ? AND month = ?
                 ORDER BY s.created_at DESC
             `;
 
             // Execute query for the current employee_id
             const [rows] = await db.execute(query, [employee_id, month]);
 
-            // Add fetched data to the result array
+            // Calculate WHT for each row
+            rows.forEach((row) => {
+                if (row.WHT_rate === 1) {
+                    row.WHT = (whtRate / 100) * row.basic_salary || 0; // Calculate WHT if WHT_rate is 1
+                } else {
+                    row.WHT = 0; // Set WHT to 0 otherwise
+                }
+            });
+
+            // Add rows to the final result
             ALLdata.push(...rows);
         }
 
@@ -141,7 +297,6 @@ const GetMultipleSalary = async (req, res) => {
         });
     }
 };
-
 
 
 const AddSalary = async (req, res) => {
@@ -969,4 +1124,4 @@ const UploadPdf = async (req, res) => {
     }
 };
 
-module.exports = { GetAllSalary, AddSalary, GetMultipleSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking, UploadPdf, AddAllEmployeeSalary }
+module.exports = { GetAllSalary, GetAllSalaryByMonth, AddSalary, GetMultipleSalary, UpdateSalary, EmpAttendanceByMonth, GetSalaryById, DeleteSalary, GetEmployeeWorking, UploadPdf, AddAllEmployeeSalary }

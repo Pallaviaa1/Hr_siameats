@@ -2,6 +2,8 @@ const bcrypt = require("bcryptjs")
 const { db } = require("../db/db2")
 const sendMail = require('../helpers/sendMail');
 const { log } = require("winston");
+const moment = require('moment');
+
 
 const GetAllAttendance = async (req, res) => {
     try {
@@ -314,8 +316,7 @@ const CreateAllAttendance = async (req, res) => {
         } = req.body;
         // console.log();
 
-        const formattedWorkingDay = new Date(working_day).toISOString().split('T')[0]; // Format date to YYYY-MM-DD
-
+        const formattedWorkingDay = moment(working_day).format('yy-MM-DD');
         // Fetch all employees
         const [employees] = await db.execute(
             `SELECT id FROM tb_employee WHERE status = 'on' AND is_deleted = '0'`
@@ -342,7 +343,7 @@ const CreateAllAttendance = async (req, res) => {
             // Check or insert attendance
             const [existingAttendance] = await db.execute(
                 `SELECT id FROM tb_attendance WHERE employee_id = ? AND workday = ? AND is_deleted = 0`,
-                [employee_id, working_day]
+                [employee_id, formattedWorkingDay]
             );
 
             if (existingAttendance.length > 0) {
@@ -369,7 +370,7 @@ const CreateAllAttendance = async (req, res) => {
                         overtime,
                         Unworked_Day,
                         employee_id,
-                        working_day
+                        formattedWorkingDay
                     ]
                 );
             } else {
@@ -379,7 +380,7 @@ const CreateAllAttendance = async (req, res) => {
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         employee_id,
-                        working_day,
+                        formattedWorkingDay,
                         Work_time_morning,
                         lunch_break_out,
                         lunch_break_in,
@@ -395,12 +396,19 @@ const CreateAllAttendance = async (req, res) => {
         }
 
         const [attendanceList] = await db.execute(
-            `SELECT a.*, a.id as attendence_id, e.f_name, e.l_name, e.n_name 
-             FROM tb_attendance AS a
-             LEFT JOIN tb_employee AS e ON e.id = a.employee_id
-             WHERE workday = ?`,
+            `SELECT a.*, a.id as attendance_id, e.f_name, e.l_name, e.n_name
+     FROM tb_attendance AS a
+     LEFT JOIN tb_employee AS e ON e.id = a.employee_id
+     WHERE a.workday = ?
+     AND a.created_at = (
+         SELECT MAX(created_at)
+         FROM tb_attendance AS sub
+         WHERE sub.employee_id = a.employee_id
+           AND sub.workday = a.workday
+     )`,
             [formattedWorkingDay]
         );
+
 
         return res.status(200).send({
             success: true,
